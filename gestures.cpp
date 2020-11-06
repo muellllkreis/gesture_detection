@@ -8,6 +8,7 @@
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/video.hpp>
+#include "hand_roi.hpp"
 using namespace cv;
 using namespace std;
 
@@ -38,16 +39,16 @@ int main(int argc, char* argv[])
     }
     */
 
-    vector<Rect> roi;
+    vector<Hand_ROI> roi;
 
     Mat I = imread("hand.jpg");
-    roi.push_back(Rect(645,150,30,30));
-    roi.push_back(Rect(615,244,30,30));
-    roi.push_back(Rect(725,262,30,30));
-    roi.push_back(Rect(623,333,30,30));
-    roi.push_back(Rect(690,333,30,30));
-    for(Rect r : roi) {
-        rectangle(I, r, Scalar(0, 255, 0));
+    roi.push_back(Hand_ROI(Rect(645,150,30,30), I));
+    roi.push_back(Hand_ROI(Rect(615,244,30,30), I));
+    roi.push_back(Hand_ROI(Rect(725,262,30,30), I));
+    roi.push_back(Hand_ROI(Rect(623,333,30,30), I));
+    roi.push_back(Hand_ROI(Rect(690,333,30,30), I));
+    for(Hand_ROI r : roi) {
+        r.draw_rectangle(I);  //rectangle(I, r, Scalar(0, 255, 0));
     }
 
     imshow("Image", I);
