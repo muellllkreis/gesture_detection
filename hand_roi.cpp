@@ -36,6 +36,7 @@ Scalar Hand_ROI::calculate_average(Mat src) {
         for (int i = 0; i < RECT_LEN; i++) {
             for (int j = 0; j < RECT_LEN; j++) {
                 Vec3f px = src.at<Vec3f>(this->upper_corner.y + i, this->upper_corner.x + j);
+                //cout << px << endl;
                 average[0] += px[0];
                 average[1] += px[1];
                 average[2] += px[2];
@@ -43,11 +44,11 @@ Scalar Hand_ROI::calculate_average(Mat src) {
             }
         }
 
-        cout << "B: " << ((float) average[0] / (RECT_LEN * RECT_LEN)) * 255.0 << endl;
-        cout << "G: " << ((float) average[1] / (RECT_LEN * RECT_LEN)) * 255.0 << endl;
-        cout << "R: " << ((float) average[2] / (RECT_LEN * RECT_LEN)) * 255.0 << endl;
+        cout << "B: " << ((float) average[0] / (RECT_LEN * RECT_LEN)) << endl;
+        cout << "G: " << ((float) average[1] / (RECT_LEN * RECT_LEN)) << endl;
+        cout << "R: " << ((float) average[2] / (RECT_LEN * RECT_LEN)) << endl;
 
-        return Scalar(((float)average[0] / (RECT_LEN * RECT_LEN)) * 255.0, ((float)average[1] / (RECT_LEN * RECT_LEN)) * 255.0, ((float)average[2] / (RECT_LEN * RECT_LEN)) * 255.0);
+        return Scalar(((float)average[0] / (RECT_LEN * RECT_LEN)), ((float)average[1] / (RECT_LEN * RECT_LEN)), ((float)average[2] / (RECT_LEN * RECT_LEN)));
     }
     catch (cv::Exception & e) {
         cerr << e.what() << endl;
