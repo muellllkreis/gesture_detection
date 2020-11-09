@@ -152,6 +152,8 @@ int main(int argc, char* argv[])
         }
     }
 
+    // we need the bounding box to get rid of defects that we don't need (in the end we only want the space
+    // between fingers
     rectangle(I_BGR, boundRect[0], Scalar(0, 0, 255), 1);
 
     double bounding_width = boundRect[0].width;
