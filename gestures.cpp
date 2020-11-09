@@ -12,7 +12,6 @@
 using namespace cv;
 using namespace std;
 
-
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 {
      if  (event == EVENT_LBUTTONDOWN) {
@@ -41,18 +40,32 @@ int main(int argc, char* argv[])
 
     vector<Hand_ROI> roi;
 
-    Mat I = imread("hand.jpg");
-    roi.push_back(Hand_ROI(Rect(645,150,30,30), I));
-    roi.push_back(Hand_ROI(Rect(615,244,30,30), I));
-    roi.push_back(Hand_ROI(Rect(725,262,30,30), I));
-    roi.push_back(Hand_ROI(Rect(623,333,30,30), I));
-    roi.push_back(Hand_ROI(Rect(690,333,30,30), I));
-    for(Hand_ROI r : roi) {
+    Mat I1 = imread("hand.jpg");
+    cout << I1.type() << endl;
+    cout << "Works: " << I1.at<Vec3b>(0, 0) << endl;
+    cout << "Size: " << I1.size << endl;
+    I1.at<Vec3b>(165, 660) = Vec3b(0.f, 0.f, 0.f);
+    I1.at<Vec3b>(166, 660) = Vec3b(0.f, 0.f, 0.f);
+    I1.at<Vec3b>(167, 660) = Vec3b(0.f, 0.f, 0.f);
+    I1.at<Vec3b>(164, 660) = Vec3b(0.f, 0.f, 0.f);
+    Mat I;
+    I1.convertTo(I, CV_32F, 1.0 / 255.0, 0.);
+    roi.push_back(Hand_ROI(Point(645, 150), I));
+    roi.push_back(Hand_ROI(Point(615, 244), I));
+    roi.push_back(Hand_ROI(Point(725, 262), I));
+    roi.push_back(Hand_ROI(Point(623, 333), I));
+    roi.push_back(Hand_ROI(Point(690, 333), I));
+    for (Hand_ROI r : roi) {
         r.draw_rectangle(I);  //rectangle(I, r, Scalar(0, 255, 0));
     }
 
+    Mat binaryMat(I.size(), CV_8U);
+    cout << roi[0].roi_mean << endl;
+    inRange(I, roi[0].roi_mean, Scalar(roi[0].roi_mean[0] - 12, roi[0].roi_mean[1] - 7, roi[0].roi_mean[2] - 10), binaryMat);
+
     imshow("Image", I);
-    setMouseCallback("Image", CallBackFunc, NULL);
+    imshow("Binary", binaryMat);
+    setMouseCallback("Image", CallBackFunc, &I);
     waitKey(0);
 
     return 0;

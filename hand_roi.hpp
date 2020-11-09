@@ -7,8 +7,13 @@ using namespace cv;
 class Hand_ROI{
         public:
                 Hand_ROI();
-                Hand_ROI(Rect rect, Mat src);
+                Hand_ROI(Point upper, Mat src);
                 Rect roi_rect;
+                Point upper_corner;
+                Point lower_corner;
                 Mat roi_ptr;
+                Mat roi_src;
+                Scalar roi_mean;
                 void draw_rectangle(Mat src);
+                Scalar calculate_average(Mat src);
 };
