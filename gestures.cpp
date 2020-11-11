@@ -9,6 +9,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/video.hpp>
 #include "hand_roi.hpp"
+#include <math.h>
 using namespace cv;
 using namespace std;
 
@@ -22,6 +23,28 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
 float distance(Point a, Point b){
         float d = sqrt(fabs(pow(a.x - b.x, 2) + pow(a.y - b.y, 2))) ;
         return d;
+}
+
+float getAngle(Point s, Point f, Point e){
+        float l1 = distance(f,s);
+        float l2 = distance(f,e);
+        float dot=(s.x-f.x)*(e.x-f.x) + (s.y-f.y)*(e.y-f.y);
+        float angle = acos(dot/(l1*l2));
+        angle = angle*180/M_PI;
+        return angle;
+}
+
+bool isHand(vector<Point> contour, Rect boundRect) {
+    double bounding_width = boundRect.width;
+    double bounding_height = boundRect.height;
+    if(bounding_width == 0 || bounding_height == 0)
+        return false;
+    else if((bounding_height / bounding_width > 4) || (bounding_width / bounding_height > 4))
+        return false;
+    else if(boundRect.x < 20)
+        return false;
+    else
+        return true;
 }
 
 int main(int argc, char* argv[])
@@ -118,46 +141,86 @@ int main(int argc, char* argv[])
         convexHull(contours[i], hull_int[i], false);
         convexityDefects(contours[i], hull_int[i], defects[i]);
         boundRect[i] = boundingRect(hull[i]);
+
     }
 
     // draw contour and hull
     drawContours(I_BGR, hull, -1, Scalar(0, 255, 0), 1);
     //drawContours(I_BGR, contours, -1, Scalar(255, 0, 0), 1);
 
-    for(vector<Vec4i> v: defects) {
-        for(Vec4i d: v) {
-            cout << d << " ";
-        }
-        cout << endl;
-    }
+//    for(vector<Vec4i> v: defects) {
+//        for(Vec4i d: v) {
+//            cout << d << " ";
+//        }
+//        cout << endl;
+//    }
 
-    // draw defects
-    for(int i = 0; i< contours.size(); i++) {
-        int count = contours[i].size();
-        if( count <300 )
-            continue;
+//    // we need the bounding box to get rid of defects that we don't need (in the end we only want the space
+//    // between fingers
+//    rectangle(I_BGR, boundRect[0], Scalar(0, 0, 255), 1);
+//    double bounding_width = boundRect[0].width;
+//    double bounding_height = boundRect[0].height;
+//    vector<Vec4i> newDefects;
 
-        vector<Vec4i>::iterator d = defects[i].begin();
-        while(d != defects[i].end()) {
-            Vec4i& v = (*d);
-            int startidx = v[0]; Point ptStart(contours[i][startidx]);
-            int endidx = v[1]; Point ptEnd(contours[i][endidx]);
-            int faridx = v[2]; Point ptFar(contours[i][faridx]);
-            float depth = v[3] / 256;
+//    for(int i = 0; i < contours.size(); i++) {
+//        int tolerance =  bounding_height / 5;
+//        float angleTol = 95;
+//        int startidx, endidx, faridx;
+//        vector<Vec4i>::iterator d=defects[i].begin();
+//        while(d != defects[i].end()) {
+//            Vec4i& v=(*d);
+//            startidx=v[0]; Point ptStart(contours[i][startidx]);
+//            endidx=v[1]; Point ptEnd(contours[i][endidx]);
+//            faridx=v[2]; Point ptFar(contours[i][faridx]);
+//            if(distance(ptStart, ptFar) > tolerance && distance(ptEnd, ptFar) > tolerance && getAngle(ptStart, ptFar, ptEnd  ) < angleTol ){
+//                if(ptEnd.y > (boundRect[0].y + bounding_height - bounding_height / 4)) {
+//                } else if(ptStart.y > (boundRect[0].y + bounding_height - bounding_height / 4)){
+//                } else {
+//                    newDefects.push_back(v);
+//                }
+//            }
+//            d++;
+//        }
 
-            //line(I_BGR, ptStart, ptEnd, Scalar(0, 0, 255), 1);
-            //line(I_BGR, ptStart, ptFar, Scalar(0, 0, 255), 1);
-            //line(I_BGR, ptEnd, ptFar, Scalar(0, 0, 255), 1);
-            circle(I_BGR, ptFar, 4, Scalar(0, 0, 255), 2);
-            d++;
-        }
-    }
+//    // draw defects
+//        int count = contours[i].size();
+//        if( count <300 )
+//            continue;
 
-    // we need the bounding box to get rid of defects that we don't need (in the end we only want the space
-    // between fingers
-    rectangle(I_BGR, boundRect[0], Scalar(0, 0, 255), 1);
-    double bounding_width = boundRect[0].width;
-    double bounding_height = boundRect[0].height;
+//        for(Vec4i v : newDefects) {
+//            int startidx = v[0]; Point ptStart(contours[i][startidx]);
+//            int endidx = v[1]; Point ptEnd(contours[i][endidx]);
+//            int faridx = v[2]; Point ptFar(contours[i][faridx]);
+//            float depth = v[3] / 256;
+
+//            //line(I_BGR, ptStart, ptEnd, Scalar(0, 0, 255), 1);
+//            //line(I_BGR, ptStart, ptFar, Scalar(0, 0, 255), 1);
+//            //line(I_BGR, ptEnd, ptFar, Scalar(0, 0, 255), 1);
+//            circle(I_BGR, ptFar, 4, Scalar(0, 0, 255), 2);
+//        }
+//    }
+
+//    vector <Point> fingerTips;
+//    int i=0;
+
+//    for(Vec4i v : newDefects) {
+//        int startidx=v[0]; Point ptStart(contours[0][startidx] );
+//        int endidx=v[1]; Point ptEnd(contours[0][endidx] );
+//        int faridx=v[2]; Point ptFar(contours[0][faridx] );
+//        if(i==0){
+//                fingerTips.push_back(ptStart);
+//                i++;
+//        }
+//        fingerTips.push_back(ptEnd);
+//        i++;
+//    }
+
+//    Point p;
+//    int k=0;
+//    for(int i=0;i<fingerTips.size();i++){
+//            p=fingerTips[i];
+//            circle( I_BGR,p,   5, Scalar(100,255,100), 4 );
+//     }
 
     imshow("Image", I_BGR);
     imshow("Binary Sum", binary_sum);
@@ -167,3 +230,25 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+//    // draw defects
+
+//        int count = contours[i].size();
+//        if( count <300 )
+//            continue;
+
+//        vector<Vec4i>::iterator d2 = newDefects[i].begin();
+//        while(d2 != newDefects[i].end()) {
+//            Vec4i& v = (*d2);
+//            int startidx = v[0]; Point ptStart(contours[i][startidx]);
+//            int endidx = v[1]; Point ptEnd(contours[i][endidx]);
+//            int faridx = v[2]; Point ptFar(contours[i][faridx]);
+//            float depth = v[3] / 256;
+
+//            //line(I_BGR, ptStart, ptEnd, Scalar(0, 0, 255), 1);
+//            //line(I_BGR, ptStart, ptFar, Scalar(0, 0, 255), 1);
+//            //line(I_BGR, ptEnd, ptFar, Scalar(0, 0, 255), 1);
+//            circle(I_BGR, ptFar, 4, Scalar(0, 0, 255), 2);
+//            d++;
+//        }
+//    }

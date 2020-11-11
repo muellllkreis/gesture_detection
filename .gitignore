@@ -12,6 +12,7 @@ _deps
 yeo2013.pdf
 *.jpg
 gestures
+backup.cpp
 
 ALL_BUILD.vcxproj
 ALL_BUILD.vcxproj.filters
