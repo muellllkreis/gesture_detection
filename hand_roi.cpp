@@ -7,7 +7,7 @@
 #include <string>
 #include "hand_roi.hpp"
 
-static int RECT_LEN = 30;
+static int RECT_LEN = 50;
 
 using namespace cv;
 using namespace std;
@@ -44,9 +44,9 @@ Scalar Hand_ROI::calculate_average(Mat src) {
             }
         }
 
-        cout << "B: " << ((float) average[0] / (RECT_LEN * RECT_LEN)) << endl;
+/*        cout << "B: " << ((float) average[0] / (RECT_LEN * RECT_LEN)) << endl;
         cout << "G: " << ((float) average[1] / (RECT_LEN * RECT_LEN)) << endl;
-        cout << "R: " << ((float) average[2] / (RECT_LEN * RECT_LEN)) << endl;
+        cout << "R: " << ((float) average[2] / (RECT_LEN * RECT_LEN)) << endl*/;
 
         return Scalar(((float)average[0] / (RECT_LEN * RECT_LEN)), ((float)average[1] / (RECT_LEN * RECT_LEN)), ((float)average[2] / (RECT_LEN * RECT_LEN)));
     }
