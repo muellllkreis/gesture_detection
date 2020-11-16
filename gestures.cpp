@@ -204,90 +204,100 @@ int main(int argc, char* argv[])
     }
 
     // get hull and defects for our hand contour
-    vector<vector<int>> hull_int(contours.size());
-    vector<vector<Point>> hull(contours.size());
-    vector<vector<Vec4i>> defects(contours.size());
-    vector<Rect> boundRect(contours.size());
+    //vector<vector<int>> hull_int(contours.size());
+    //vector<vector<Point>> hull(contours.size());
+    //vector<vector<Vec4i>> defects(contours.size());
+    //vector<Rect> boundRect(contours.size());
 
-    for(int i = 0; i < contours.size(); i++) {
-        //cout << "AREA: " << contourArea(contours[i]) << endl;
-        convexHull(contours[i], hull[i], true);
-        convexHull(contours[i], hull_int[i], false);
-        convexityDefects(contours[i], hull_int[i], defects[i]);
-        boundRect[i] = boundingRect(hull[i]);
-
+    int check = 0;
+    bool foundHand = false;
+    int handIndex = -1;
+    Rect boundRect;
+    while(!foundHand && check < contours.size()) {
+        handIndex = findLargestCont(contours);
+        boundRect = boundingRect(contours[handIndex]);
+        if(isHand(contours[handIndex], boundRect)) {
+            foundHand = true;
+        }
+        check++;
+    }
+    if(!foundHand) {
+        cout << "No hand in frame" << endl;
+        return -1;
     }
 
-    // draw contour and hull
-    drawContours(I_BGR, hull, -1, Scalar(0, 255, 0), 1);
-    //drawContours(I_BGR, contours, -1, Scalar(255, 0, 0), 1);
+    cout << "AREA: " << contourArea(contours[handIndex]) << endl;
+    vector<Point> hull;
+    convexHull(contours[handIndex], hull, true);
+    vector<int> hull_int;
+    convexHull(contours[handIndex], hull_int, false);
+    vector<Vec4i> defects;
+    convexityDefects(contours[handIndex], hull_int, defects);
+    //Rect boundRect = boundingRect(hull);
 
-//    for(vector<Vec4i> v: defects) {
-//        for(Vec4i d: v) {
-//            cout << d << " ";
-//        }
-//        cout << endl;
-//    }
+//    // draw contour and hull
+    drawContours(I_BGR, vector<vector<Point>>(1, hull), -1, Scalar(0, 255, 0), 1);
+//    //drawContours(I_BGR, contours, -1, Scalar(255, 0, 0), 1);
 
-//    // we need the bounding box to get rid of defects that we don't need (in the end we only want the space
-//    // between fingers
-//    rectangle(I_BGR, boundRect[0], Scalar(0, 0, 255), 1);
-//    double bounding_width = boundRect[0].width;
-//    double bounding_height = boundRect[0].height;
-//    vector<Vec4i> newDefects;
+    // we need the bounding box to get rid of defects that we don't need (in the end we only want the space
+    // between fingers
+    rectangle(I_BGR, boundRect, Scalar(0, 0, 255), 1);
+    double bounding_width = boundRect.width;
+    double bounding_height = boundRect.height;
 
-//    for(int i = 0; i < contours.size(); i++) {
-//        int tolerance =  bounding_height / 5;
-//        float angleTol = 95;
-//        int startidx, endidx, faridx;
-//        vector<Vec4i>::iterator d=defects[i].begin();
-//        while(d != defects[i].end()) {
-//            Vec4i& v=(*d);
-//            startidx=v[0]; Point ptStart(contours[i][startidx]);
-//            endidx=v[1]; Point ptEnd(contours[i][endidx]);
-//            faridx=v[2]; Point ptFar(contours[i][faridx]);
-//            if(distance(ptStart, ptFar) > tolerance && distance(ptEnd, ptFar) > tolerance && getAngle(ptStart, ptFar, ptEnd  ) < angleTol ){
-//                if(ptEnd.y > (boundRect[0].y + bounding_height - bounding_height / 4)) {
-//                } else if(ptStart.y > (boundRect[0].y + bounding_height - bounding_height / 4)){
-//                } else {
-//                    newDefects.push_back(v);
-//                }
-//            }
-//            d++;
-//        }
+    vector<Vec4i> newDefects;
 
-//    // draw defects
-//        int count = contours[i].size();
-//        if( count <300 )
-//            continue;
+    int tolerance =  bounding_height / 5;
+    float angleTol = 95;
+    int startidx, endidx, faridx;
 
-//        for(Vec4i v : newDefects) {
-//            int startidx = v[0]; Point ptStart(contours[i][startidx]);
-//            int endidx = v[1]; Point ptEnd(contours[i][endidx]);
-//            int faridx = v[2]; Point ptFar(contours[i][faridx]);
-//            float depth = v[3] / 256;
+    vector<Vec4i>::iterator d = defects.begin();
+    while(d != defects.end()) {
+        Vec4i& v = (*d);
+        startidx = v[0]; Point ptStart(contours[handIndex][startidx]);
+        endidx = v[1]; Point ptEnd(contours[handIndex][endidx]);
+        faridx = v[2]; Point ptFar(contours[handIndex][faridx]);
+        if(distance(ptStart, ptFar) > tolerance && distance(ptEnd, ptFar) > tolerance && getAngle(ptStart, ptFar, ptEnd) < angleTol){
+            if(ptEnd.y > (boundRect.y + bounding_height - bounding_height / 4)) {
+            } else if(ptStart.y > (boundRect.y + bounding_height - bounding_height / 4)){
+            } else {
+                newDefects.push_back(v);
+            }
+        }
+        d++;
+    }
 
-//            //line(I_BGR, ptStart, ptEnd, Scalar(0, 0, 255), 1);
-//            //line(I_BGR, ptStart, ptFar, Scalar(0, 0, 255), 1);
-//            //line(I_BGR, ptEnd, ptFar, Scalar(0, 0, 255), 1);
-//            circle(I_BGR, ptFar, 4, Scalar(0, 0, 255), 2);
-//        }
-//    }
+    // draw defects
+    int count = contours[handIndex].size();
+    if(count < 300)
+        return -1;
 
-//    vector <Point> fingerTips;
-//    int i=0;
+    for(Vec4i v : newDefects) {
+        int startidx = v[0]; Point ptStart(contours[handIndex][startidx]);
+        int endidx = v[1]; Point ptEnd(contours[handIndex][endidx]);
+        int faridx = v[2]; Point ptFar(contours[handIndex][faridx]);
+        float depth = v[3] / 256;
 
-//    for(Vec4i v : newDefects) {
-//        int startidx=v[0]; Point ptStart(contours[0][startidx] );
-//        int endidx=v[1]; Point ptEnd(contours[0][endidx] );
-//        int faridx=v[2]; Point ptFar(contours[0][faridx] );
-//        if(i==0){
-//                fingerTips.push_back(ptStart);
-//                i++;
-//        }
-//        fingerTips.push_back(ptEnd);
-//        i++;
-//    }
+        //line(I_BGR, ptStart, ptEnd, Scalar(0, 0, 255), 1);
+        //line(I_BGR, ptStart, ptFar, Scalar(0, 0, 255), 1);
+        //line(I_BGR, ptEnd, ptFar, Scalar(0, 0, 255), 1);
+        circle(I_BGR, ptFar, 4, Scalar(0, 0, 255), 2);
+    }
+
+    vector <Point> fingerTips;
+    int i = 0;
+
+    for(Vec4i v : newDefects) {
+        int startidx=v[0]; Point ptStart(contours[handIndex][startidx]);
+        int endidx=v[1]; Point ptEnd(contours[handIndex][endidx]);
+        int faridx=v[2]; Point ptFar(contours[handIndex][faridx]);
+        if(i == 0){
+                fingerTips.push_back(ptStart);
+                i++;
+        }
+        fingerTips.push_back(ptEnd);
+        i++;
+    }
 
 //    Point p;
 //    int k=0;
