@@ -103,6 +103,10 @@ int main(int argc, char* argv[])
         return 0;
     }
 
+    cap >> I1;
+    double col_offset = I1.cols * 0.05;
+    double row_offset = I1.rows * 0.075;
+
     while(true) {
         vector<Hand_ROI>().swap(roi);
         cap >> I1;
@@ -115,12 +119,12 @@ int main(int argc, char* argv[])
         // the hand will have to be positioned over ROIs like this
         Point hand_center = Point(3 * (int) (I1.cols / 4), (int) (I1.rows / 2));
         roi.push_back(Hand_ROI(hand_center, I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x + 150, hand_center.y), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x - 150, hand_center.y), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x + 120, hand_center.y + 100), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x - 120, hand_center.y + 100), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - 100), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - 200), I_HSV));
+        roi.push_back(Hand_ROI(Point(hand_center.x + col_offset, hand_center.y), I_HSV));
+        roi.push_back(Hand_ROI(Point(hand_center.x - col_offset, hand_center.y), I_HSV));
+        roi.push_back(Hand_ROI(Point(hand_center.x + col_offset, hand_center.y + row_offset), I_HSV));
+        roi.push_back(Hand_ROI(Point(hand_center.x - col_offset, hand_center.y + row_offset), I_HSV));
+        roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset), I_HSV));
+        roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset * 2), I_HSV));
 
         for (Hand_ROI r : roi) {
             r.draw_rectangle(I_BGR);
