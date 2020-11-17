@@ -126,12 +126,12 @@ int main(int argc, char* argv[])
         roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset), I_HSV));
         roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset * 2), I_HSV));
 
-        for (Hand_ROI r : roi) {
-            r.draw_rectangle(I_BGR);
-        }
-
         if(waitKey(10) == 32) {
             break;
+        }
+
+        for (Hand_ROI r : roi) {
+            r.draw_rectangle(I_BGR);
         }
 
         namedWindow("Image", CV_WINDOW_KEEPRATIO);
@@ -303,12 +303,19 @@ int main(int argc, char* argv[])
         i++;
     }
 
-//    Point p;
-//    int k=0;
-//    for(int i=0;i<fingerTips.size();i++){
-//            p=fingerTips[i];
-//            circle( I_BGR,p,   5, Scalar(100,255,100), 4 );
-//     }
+    Point center_bounding_rect(
+            (boundRect.tl().x + boundRect.br().x) / 2,
+            (boundRect.tl().y + boundRect.br().y) / 2
+    );
+
+    circle(I_BGR, center_bounding_rect, 5, Scalar(255, 0, 0), 4);
+
+    Point p;
+    int k=0;
+    for(int i = 0; i < fingerTips.size(); i++){
+            p = fingerTips[i];
+            circle(I_BGR, p, 5, Scalar(100,255,100), 4);
+     }
 
     imshow("Image", I_BGR);
     imshow("Binary Sum", binary_mask);
@@ -318,25 +325,3 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-
-//    // draw defects
-
-//        int count = contours[i].size();
-//        if( count <300 )
-//            continue;
-
-//        vector<Vec4i>::iterator d2 = newDefects[i].begin();
-//        while(d2 != newDefects[i].end()) {
-//            Vec4i& v = (*d2);
-//            int startidx = v[0]; Point ptStart(contours[i][startidx]);
-//            int endidx = v[1]; Point ptEnd(contours[i][endidx]);
-//            int faridx = v[2]; Point ptFar(contours[i][faridx]);
-//            float depth = v[3] / 256;
-
-//            //line(I_BGR, ptStart, ptEnd, Scalar(0, 0, 255), 1);
-//            //line(I_BGR, ptStart, ptFar, Scalar(0, 0, 255), 1);
-//            //line(I_BGR, ptEnd, ptFar, Scalar(0, 0, 255), 1);
-//            circle(I_BGR, ptFar, 4, Scalar(0, 0, 255), 2);
-//            d++;
-//        }
-//    }
