@@ -9,6 +9,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/video.hpp>
 #include "hand_roi.hpp"
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <limits>
 
@@ -61,6 +62,109 @@ int findLargestCont(vector<vector<Point>> contours){
     return max_index;
 }
 
+bool isFinger(Point a, Point b, Point c, double minAngle, double maxAngle, Point handCentroid, double minDistFromCentroid) {
+    float angle = getAngle(a, b, c);
+    //threshold angle values
+    if (angle > maxAngle || angle < minAngle)
+        return false;
+
+    // the finger point should not be under the two far points
+    if (b.y - a.y > 0 && b.y - c.y > 0)
+        return false;
+
+    // the two far points should not be both under the center of the hand
+    if (handCentroid.y - a.y < 0 && handCentroid.y - c.y < 0)
+        return false;
+    
+    if (distance(b, handCentroid) < minDistFromCentroid)
+        return false;
+
+    // this should be the case when no fingers are up
+    if (distance(a, handCentroid) < minDistFromCentroid / 4 || distance(c, handCentroid) < minDistFromCentroid / 4)
+        return false;
+
+    return true;
+}
+
+vector<Point> neighborhoodAverage(vector<Point> initialPoints, float neighborhoodRadius)
+{
+    vector<Point> averagePoints;
+
+    // we start with the first point
+    Point reference = initialPoints[0];
+    Point median = initialPoints[0];
+
+    for (int i = 1; i < initialPoints.size(); i++) {
+        if (distance(reference, initialPoints[i]) > neighborhoodRadius) {
+
+            // the point is not in range, we save the median
+            averagePoints.push_back(median);
+
+            // we swap the reference
+            reference = initialPoints[i];
+            median = initialPoints[i];
+        }
+        else
+            median = (initialPoints[i] + median) / 2;
+    }
+    // last median
+    averagePoints.push_back(median);
+    return averagePoints;
+}
+
+double findPointsDistanceOnX(Point a, Point b) {
+    double to_return = 0.0;
+
+    if (a.x > b.x)
+        to_return = a.x - b.x;
+    else
+        to_return = b.x - a.x;
+
+    return to_return;
+}
+
+
+vector<Point> findClosestOnX(vector<Point> points, Point pivot) {
+    vector<Point> to_return(2);
+
+    if (points.size() == 0)
+        return to_return;
+
+    double distance_x_1 = DBL_MAX;
+    double distance_1 = DBL_MAX;
+    double distance_x_2 = DBL_MAX;
+    double distance_2 = DBL_MAX;
+    int index_found = 0;
+
+    for (int i = 0; i < points.size(); i++) {
+        double distance_x = findPointsDistanceOnX(pivot, points[i]);
+        double totalDistance = distance(pivot, points[i]);
+
+        if (distance_x < distance_x_1 && distance_x != 0 && totalDistance <= distance_1) {
+            distance_x_1 = distance_x;
+            distance_1 = totalDistance;
+            index_found = i;
+        }
+    }
+
+    to_return[0] = points[index_found];
+
+    for (int i = 0; i < points.size(); i++) {
+        double distance_x = findPointsDistanceOnX(pivot, points[i]);
+        double totalDistance = distance(pivot, points[i]);
+
+        if (distance_x < distance_x_2 && distance_x != 0 && totalDistance <= distance_2 && distance_x != distance_x_1) {
+            distance_x_2 = distance_x;
+            distance_2 = totalDistance;
+            index_found = i;
+        }
+    }
+
+    to_return[1] = points[index_found];
+
+    return to_return;
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -105,7 +209,7 @@ int main(int argc, char* argv[])
 
     cap >> I1;
     double col_offset = I1.cols * 0.05;
-    double row_offset = I1.rows * 0.075;
+    double row_offset = I1.rows * 0.05;
 
     while(true) {
         vector<Hand_ROI>().swap(roi);
@@ -118,13 +222,13 @@ int main(int argc, char* argv[])
         // add points of interest that we are using to compute color averages. later, for a webcam feed,
         // the hand will have to be positioned over ROIs like this
         Point hand_center = Point(3 * (int) (I1.cols / 4), (int) (I1.rows / 2));
-        roi.push_back(Hand_ROI(hand_center, I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x + col_offset, hand_center.y), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x - col_offset, hand_center.y), I_HSV));
+        //roi.push_back(Hand_ROI(hand_center, I_HSV));
+        roi.push_back(Hand_ROI(Point(hand_center.x + col_offset, hand_center.y-row_offset), I_HSV));
+        roi.push_back(Hand_ROI(Point(hand_center.x - col_offset, hand_center.y+row_offset), I_HSV));
         roi.push_back(Hand_ROI(Point(hand_center.x + col_offset, hand_center.y + row_offset), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x - col_offset, hand_center.y + row_offset), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset * 2), I_HSV));
+        roi.push_back(Hand_ROI(Point(hand_center.x - col_offset, hand_center.y - row_offset), I_HSV));
+        //roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset), I_HSV));
+        //roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset * 2), I_HSV));
 
         if(waitKey(10) == 32) {
             break;
@@ -135,7 +239,7 @@ int main(int argc, char* argv[])
         }
 
         namedWindow("Image", CV_WINDOW_KEEPRATIO);
-        resizeWindow("Image", 848, 480);
+        resizeWindow("Image", 960, 540);
         imshow("Image", I_BGR);
     }
 
@@ -165,7 +269,7 @@ int main(int argc, char* argv[])
     cout << "max h: " << max_s << endl;
 
     Mat binary_mask;
-    inRange(I_HSV, Scalar(min_h - 12, min_s - 0.12, 0), Scalar(max_h + 30, max_s + 0.3, 1), binary_mask);
+    inRange(I_HSV, Scalar(min_h - 30, min_s - 0.3, 0), Scalar(max_h + 80, max_s + 0.8, 1), binary_mask);
 
     // blur binary image to smoothen it
     Mat binary_blur(I_HSV.size(), CV_8UC1);
@@ -243,84 +347,147 @@ int main(int argc, char* argv[])
     drawContours(I_BGR, vector<vector<Point>>(1, hull), -1, Scalar(0, 255, 0), 1);
 //    //drawContours(I_BGR, contours, -1, Scalar(255, 0, 0), 1);
 
-    // we need the bounding box to get rid of defects that we don't need (in the end we only want the space
-    // between fingers
-    rectangle(I_BGR, boundRect, Scalar(0, 0, 255), 1);
-    double bounding_width = boundRect.width;
-    double bounding_height = boundRect.height;
+    Rect boundingRectangle = boundingRect(Mat(hull));
+    // take the center of the rectangle which is approximately the center of the hand (tl = top left etc)
+    Point boundingRectangeCenter((boundingRectangle.tl().x + boundingRectangle.br().x) / 2, (boundingRectangle.tl().y + boundingRectangle.br().y) / 2);
 
-    vector<Vec4i> newDefects;
+    //points corresponding to bigger and smaller distances
+    vector<Point> startPoints;
+    vector<Point> farPoints;
 
-    int tolerance =  bounding_height / 5;
-    float angleTol = 95;
-    int startidx, endidx, faridx;
+    for (int i = 0; i < defects.size(); i++) {
+        startPoints.push_back(contours[handIndex][defects[i].val[0]]);
 
-    vector<Vec4i>::iterator d = defects.begin();
-    while(d != defects.end()) {
-        Vec4i& v = (*d);
-        startidx = v[0]; Point ptStart(contours[handIndex][startidx]);
-        endidx = v[1]; Point ptEnd(contours[handIndex][endidx]);
-        faridx = v[2]; Point ptFar(contours[handIndex][faridx]);
-        if(distance(ptStart, ptFar) > tolerance && distance(ptEnd, ptFar) > tolerance && getAngle(ptStart, ptFar, ptEnd) < angleTol){
-            if(ptEnd.y > (boundRect.y + bounding_height - bounding_height / 4)) {
-            } else if(ptStart.y > (boundRect.y + bounding_height - bounding_height / 4)){
-            } else {
-                newDefects.push_back(v);
+        // filtering the far point based on the distance from the center of the bounding rectangle
+        if (distance(contours[handIndex][defects[i].val[2]], boundingRectangeCenter) < boundingRectangle.height * 0.3)
+            farPoints.push_back(contours[handIndex][defects[i].val[2]]);
+    }
+
+    //we want only one point in a given neighbourhood of points --> filter the points
+    vector<Point> filteredStartPoints = neighborhoodAverage(startPoints, boundingRectangle.height * 0.05);
+    vector<Point> filteredFarPoints = neighborhoodAverage(farPoints, boundingRectangle.height * 0.05);
+
+    vector<Point> filteredFingerPoints;
+    vector<Point> fingerPoints;
+
+    //test if the remaining filtered points are actually fingertips
+    for (int i = 0; i < filteredStartPoints.size(); i++)
+    {
+        vector<Point> closestPoints = findClosestOnX(filteredFarPoints, filteredStartPoints[i]);
+        if (isFinger(closestPoints[0], filteredStartPoints[i], closestPoints[1], 5, 50, boundingRectangeCenter, boundingRectangle.height * 0.3))
+        {
+            fingerPoints.push_back(filteredStartPoints[i]);
+        }
+    }
+
+    if (fingerPoints.size() > 0)
+    {
+        while (fingerPoints.size() > 5) //remove potential 6,7 fingers occurences 
+        {
+            fingerPoints.pop_back(); 
+        }
+
+        //filter out points too close to each other
+        for (int i = 0; i < fingerPoints.size() - 1; i++)
+        {
+            if (findPointsDistanceOnX(fingerPoints[i], fingerPoints[i + 1]) > boundingRectangle.height * 0.3 * 1.5)
+            {
+                filteredFingerPoints.push_back(fingerPoints[i]);
             }
         }
-        d++;
-    }
-
-    // draw defects
-    int count = contours[handIndex].size();
-    if(count < 300)
-        return -1;
-
-    for(Vec4i v : newDefects) {
-        int startidx = v[0]; Point ptStart(contours[handIndex][startidx]);
-        int endidx = v[1]; Point ptEnd(contours[handIndex][endidx]);
-        int faridx = v[2]; Point ptFar(contours[handIndex][faridx]);
-        float depth = v[3] / 256;
-
-        //line(I_BGR, ptStart, ptEnd, Scalar(0, 0, 255), 1);
-        //line(I_BGR, ptStart, ptFar, Scalar(0, 0, 255), 1);
-        //line(I_BGR, ptEnd, ptFar, Scalar(0, 0, 255), 1);
-        circle(I_BGR, ptFar, 4, Scalar(0, 0, 255), 2);
-    }
-
-    vector <Point> fingerTips;
-    int i = 0;
-
-    for(Vec4i v : newDefects) {
-        int startidx=v[0]; Point ptStart(contours[handIndex][startidx]);
-        int endidx=v[1]; Point ptEnd(contours[handIndex][endidx]);
-        int faridx=v[2]; Point ptFar(contours[handIndex][faridx]);
-        if(i == 0){
-                fingerTips.push_back(ptStart);
-                i++;
+        
+        if (fingerPoints.size() > 2)
+        {
+            if (findPointsDistanceOnX(fingerPoints[0], fingerPoints[fingerPoints.size() - 1]) > boundingRectangle.height * 0.3 * 1.5)
+            {
+                filteredFingerPoints.push_back(fingerPoints[fingerPoints.size() - 1]);
+            }
         }
-        fingerTips.push_back(ptEnd);
-        i++;
+        else
+        {
+            filteredFingerPoints.push_back(fingerPoints[fingerPoints.size() - 1]);
+        }
     }
 
-    Point center_bounding_rect(
-            (boundRect.tl().x + boundRect.br().x) / 2,
-            (boundRect.tl().y + boundRect.br().y) / 2
-    );
+    // we need the bounding box to get rid of defects that we don't need (in the end we only want the space
+    // between fingers
+    //rectangle(I_BGR, boundRect, Scalar(0, 0, 255), 1);
+    //double bounding_width = boundRect.width;
+    //double bounding_height = boundRect.height;
 
-    circle(I_BGR, center_bounding_rect, 5, Scalar(255, 0, 0), 4);
+    //vector<Vec4i> newDefects;
+
+    //int tolerance =  bounding_height / 5;
+    //float angleTol = 95;
+    //int startidx, endidx, faridx;
+
+    //might not be needed with new method
+    //vector<Vec4i>::iterator d = defects.begin();
+    //while(d != defects.end()) {
+    //    Vec4i& v = (*d);
+    //    startidx = v[0]; Point ptStart(contours[handIndex][startidx]);
+    //    endidx = v[1]; Point ptEnd(contours[handIndex][endidx]);
+    //    faridx = v[2]; Point ptFar(contours[handIndex][faridx]);
+    //    if(distance(ptStart, ptFar) > tolerance && distance(ptEnd, ptFar) > tolerance && getAngle(ptStart, ptFar, ptEnd) < angleTol){
+    //        if(ptEnd.y > (boundRect.y + bounding_height - bounding_height / 4)) {
+    //        } else if(ptStart.y > (boundRect.y + bounding_height - bounding_height / 4)){
+    //        } else {
+    //            newDefects.push_back(v);
+    //        }
+    //    }
+    //    d++;
+    //}
+
+    //// draw defects
+    //int count = contours[handIndex].size();
+    //if(count < 300)
+    //    return -1;
+
+    //for(Vec4i v : newDefects) {
+    //    int startidx = v[0]; Point ptStart(contours[handIndex][startidx]);
+    //    int endidx = v[1]; Point ptEnd(contours[handIndex][endidx]);
+    //    int faridx = v[2]; Point ptFar(contours[handIndex][faridx]);
+    //    float depth = v[3] / 256;
+
+    //    //line(I_BGR, ptStart, ptEnd, Scalar(0, 0, 255), 1);
+    //    //line(I_BGR, ptStart, ptFar, Scalar(0, 0, 255), 1);
+    //    //line(I_BGR, ptEnd, ptFar, Scalar(0, 0, 255), 1);
+    //    circle(I_BGR, ptFar, 4, Scalar(0, 0, 255), 2);
+    //}
+
+    //vector <Point> fingerTips;
+    //int i = 0;
+
+    //for(Vec4i v : newDefects) {
+    //    int startidx=v[0]; Point ptStart(contours[handIndex][startidx]);
+    //    int endidx=v[1]; Point ptEnd(contours[handIndex][endidx]);
+    //    int faridx=v[2]; Point ptFar(contours[handIndex][faridx]);
+    //    if(i == 0){
+    //            fingerTips.push_back(ptStart);
+    //            i++;
+    //    }
+    //    fingerTips.push_back(ptEnd);
+    //    i++;
+    //}
+
+    //Point center_bounding_rect(
+    //        (boundRect.tl().x + boundRect.br().x) / 2,
+    //        (boundRect.tl().y + boundRect.br().y) / 2
+    //);
+
+    circle(I_BGR, boundingRectangeCenter, 5, Scalar(255, 0, 0), 4);
 
     Point p;
     int k=0;
-    for(int i = 0; i < fingerTips.size(); i++){
-            p = fingerTips[i];
+    for(int i = 0; i < fingerPoints.size(); i++){
+            p = fingerPoints[i];
             circle(I_BGR, p, 5, Scalar(100,255,100), 4);
      }
 
     imshow("Image", I_BGR);
     imshow("Binary Sum", binary_mask);
     imshow("Binary Blur", binary_blur);
-    setMouseCallback("Image", CallBackFunc, &I_HSV);
+    setMouseCallback("Image", CallBackFunc, &I_BGR);
     waitKey(0);
 
     return 0;

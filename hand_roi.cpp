@@ -7,7 +7,7 @@
 #include <string>
 #include "hand_roi.hpp"
 
-static int RECT_LEN = 50;
+static int RECT_LEN = 20;
 
 using namespace cv;
 using namespace std;
