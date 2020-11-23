@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string>
-#include "hand_roi.hpp"
+#include "hand_roi.h"
 
 static int RECT_LEN = 20;
 

@@ -9,5 +9,5 @@ PROJECT(GESTURE_TRACKER)
 # ADD_EXECUTABLE(sample sample.cpp)
 
 INCLUDE_DIRECTORIES(${OpenCV_INCLUDE_DIRS})
-ADD_EXECUTABLE(gestures gestures.cpp hand_roi.cpp)
+ADD_EXECUTABLE(gestures gestures.cpp hand_roi.cpp binary_mask_creator.cpp)
 TARGET_LINK_LIBRARIES(gestures ${OpenCV_LIBS})

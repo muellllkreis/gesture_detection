@@ -8,10 +8,13 @@
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/video.hpp>
-#include "hand_roi.hpp"
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <limits>
+
+#include "hand_roi.h"
+#include "binary_mask_creator.h"
+
 
 using namespace cv;
 using namespace std;
@@ -166,148 +169,35 @@ vector<Point> findClosestOnX(vector<Point> points, Point pivot) {
 }
 
 
+
+
 int main(int argc, char* argv[])
 {
-    String faceClassifierFileName = "face_classifier/haarcascade_frontalface_alt.xml";
-    String profileClassifierFileName = "face_classifier/haarcascade_profileface.xml";
-    CascadeClassifier faceCascadeClassifier, profileCascadeClassifier;
-
-    if (!faceCascadeClassifier.load(faceClassifierFileName))
-        throw runtime_error("can't load file " + faceClassifierFileName);
-
-    if (!profileCascadeClassifier.load(profileClassifierFileName))
-        throw runtime_error("can't load file " + profileClassifierFileName);
-
-
-    // Section to include webcam feed for later
-    /*
+    //start video feed
     VideoCapture cap;
-    if(!cap.open(0))
-        return 0;
-    for(;;)
-    {
-          Mat frame;
-          cap >> frame;
-          if( frame.empty() ) break; // end of video stream
-          namedWindow("Feed", CV_WINDOW_KEEPRATIO);
-          resizeWindow("Feed", 1000, 800);
-          imshow("Feed", frame);
-          if( waitKey(10) == 27 ) break; // stop capturing by pressing ESC
-    }
-    */
-    vector<Hand_ROI> roi;
-
-    //Mat I1 = imread("hand.jpg");
-    Mat I1;
-    Mat I_BGR;
-    Mat I_HSV;
-
-    VideoCapture cap;
-    if(!cap.open(0)) {
+    if (!cap.open(0)) {
         return 0;
     }
 
-    cap >> I1;
-    double col_offset = I1.cols * 0.05;
-    double row_offset = I1.rows * 0.05;
+    //Create binary Mask (+ remove face)
+    binary_mask_creator BMC;
+    vector<Mat> BMC_output = BMC.createBinaryMask(cap, true);
+    Mat I_BGR = BMC_output[0];
+    Mat binary_blur_uc = BMC_output[1];
 
-    while(true) {
-        vector<Hand_ROI>().swap(roi);
-        cap >> I1;
-        //flip(I1, I1, 1);
-        // create bgr and hsv version of image
-        I1.convertTo(I_BGR, CV_32F, 1.0 / 255.0, 0.);
-        cvtColor(I_BGR, I_HSV, COLOR_BGR2HSV);
 
-        // add points of interest that we are using to compute color averages. later, for a webcam feed,
-        // the hand will have to be positioned over ROIs like this
-        Point hand_center = Point(3 * (int) (I1.cols / 4), (int) (I1.rows / 2));
-        //roi.push_back(Hand_ROI(hand_center, I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x + col_offset, hand_center.y-row_offset), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x - col_offset, hand_center.y+row_offset), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x + col_offset, hand_center.y + row_offset), I_HSV));
-        roi.push_back(Hand_ROI(Point(hand_center.x - col_offset, hand_center.y - row_offset), I_HSV));
-        //roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset), I_HSV));
-        //roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset * 2), I_HSV));
+    ////////////////////////////////////////////////////
+    // HAND DETECTION PART
+    ///////////////////////////////////////////////////
 
-        if(waitKey(10) == 32) {
-            break;
-        }
-
-        for (Hand_ROI r : roi) {
-            r.draw_rectangle(I_BGR);
-        }
-
-        namedWindow("Image", CV_WINDOW_KEEPRATIO);
-        resizeWindow("Image", 960, 540);
-        imshow("Image", I_BGR);
-    }
-
-    // create binary threshold image per ROI
-    float min_h = std::numeric_limits<float>::infinity();
-    float max_h = 0.f;
-    float min_s = std::numeric_limits<float>::infinity();
-    float max_s = 0.f;
-    for(Hand_ROI r: roi) {
-        if(r.roi_mean[0] < min_h) {
-            min_h = r.roi_mean[0];
-        }
-        if(r.roi_mean[0] > max_h) {
-            max_h = r.roi_mean[0];
-        }
-        if(r.roi_mean[1] < min_s) {
-            min_s = r.roi_mean[1];
-        }
-        if(r.roi_mean[1] > max_s) {
-            max_s = r.roi_mean[1];
-        }
-    }
-
-    cout << "min h: " << min_h << endl;
-    cout << "max h: " << max_h << endl;
-    cout << "min s: " << min_s << endl;
-    cout << "max h: " << max_s << endl;
-
-    Mat binary_mask;
-    inRange(I_HSV, Scalar(min_h - 30, min_s - 0.3, 0), Scalar(max_h + 80, max_s + 0.8, 1), binary_mask);
-
-    // blur binary image to smoothen it
-    Mat binary_blur(I_HSV.size(), CV_8UC1);
-    Mat binary_blur_uc;
-    cout << binary_blur.type() << endl;
-    medianBlur(binary_mask, binary_blur, 5);
-    binary_blur.convertTo(binary_blur_uc, CV_8UC1);
-    cout << binary_blur_uc.type() << endl;
-
-    // use openCV classifier to find face(s) and remove them
-    // this will enable us to afterwards assume that the biggest remaining part of skin will be the hand
-    vector<Rect> faces;
-    vector<Rect> profile;
-    Mat frameGray;
-
-    cvtColor(I1, frameGray, CV_BGR2GRAY);
-    cout << "type: " << frameGray.type() << endl;
-    equalizeHist(frameGray, frameGray);
-
-    faceCascadeClassifier.detectMultiScale(frameGray, faces, 1.1, 2, 0 | CASCADE_SCALE_IMAGE, Size(120, 120));
-    profileCascadeClassifier.detectMultiScale(frameGray, profile, 1.1, 2, 0 | CASCADE_SCALE_IMAGE, Size(120, 120));
-
-    faces.insert(faces.end(), profile.begin(), profile.end());
-
-    for(Rect f: faces) {
-        cout << "found face" << endl;
-        // note that we are removing the face from binary_blur_uc as it is the Mat used in the next step for contour detection
-        rectangle(binary_blur_uc, f, Scalar(0, 0, 0), -1);
-    }
-
-    // detect contours
+    //Detect hand contours
     vector<vector<Point>> all_contours;
     findContours(binary_blur_uc, all_contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
     // for now we only want to keep the biggest one (hand). this might pose problems later, we will see.
     vector<vector<Point>> contours;
-    for(int i = 0; i < all_contours.size(); i++) {
-        if(contourArea(all_contours[i]) > 40000)
+    for (int i = 0; i < all_contours.size(); i++) {
+        if (contourArea(all_contours[i]) > 40000)
             contours.push_back(all_contours[i]);
     }
 
@@ -321,15 +211,15 @@ int main(int argc, char* argv[])
     bool foundHand = false;
     int handIndex = -1;
     Rect boundRect;
-    while(!foundHand && check < contours.size()) {
+    while (!foundHand && check < contours.size()) {
         handIndex = findLargestCont(contours);
         boundRect = boundingRect(contours[handIndex]);
-        if(isHand(contours[handIndex], boundRect)) {
+        if (isHand(contours[handIndex], boundRect)) {
             foundHand = true;
         }
         check++;
     }
-    if(!foundHand) {
+    if (!foundHand) {
         cout << "No hand in frame" << endl;
         return -1;
     }
@@ -345,7 +235,7 @@ int main(int argc, char* argv[])
 
 //    // draw contour and hull
     drawContours(I_BGR, vector<vector<Point>>(1, hull), -1, Scalar(0, 255, 0), 1);
-//    //drawContours(I_BGR, contours, -1, Scalar(255, 0, 0), 1);
+    //    //drawContours(I_BGR, contours, -1, Scalar(255, 0, 0), 1);
 
     Rect boundingRectangle = boundingRect(Mat(hull));
     // take the center of the rectangle which is approximately the center of the hand (tl = top left etc)
@@ -384,7 +274,7 @@ int main(int argc, char* argv[])
     {
         while (fingerPoints.size() > 5) //remove potential 6,7 fingers occurences 
         {
-            fingerPoints.pop_back(); 
+            fingerPoints.pop_back();
         }
 
         //filter out points too close to each other
@@ -395,7 +285,7 @@ int main(int argc, char* argv[])
                 filteredFingerPoints.push_back(fingerPoints[i]);
             }
         }
-        
+
         if (fingerPoints.size() > 2)
         {
             if (findPointsDistanceOnX(fingerPoints[0], fingerPoints[fingerPoints.size() - 1]) > boundingRectangle.height * 0.3 * 1.5)
@@ -478,15 +368,19 @@ int main(int argc, char* argv[])
     circle(I_BGR, boundingRectangeCenter, 5, Scalar(255, 0, 0), 4);
 
     Point p;
-    int k=0;
-    for(int i = 0; i < fingerPoints.size(); i++){
+    int k = 0;
+
+    if (fingerPoints.size() > 0)
+    {
+        for (int i = 0; i < fingerPoints.size(); i++) {
             p = fingerPoints[i];
-            circle(I_BGR, p, 5, Scalar(100,255,100), 4);
-     }
+            circle(I_BGR, p, 5, Scalar(100, 255, 100), 4);
+        }
+    }
 
     imshow("Image", I_BGR);
-    imshow("Binary Sum", binary_mask);
-    imshow("Binary Blur", binary_blur);
+    //imshow("Binary Sum", binary_mask);
+    imshow("Binary Blur", binary_blur_uc);
     setMouseCallback("Image", CallBackFunc, &I_BGR);
     waitKey(0);
 
