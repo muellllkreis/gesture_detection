@@ -1,3 +1,5 @@
+#ifndef BINARY_MASK_CREATOR_H
+#define BINARY_MASK_CREATOR_H
 
 #include <iostream>
 #include <sstream>
@@ -23,7 +25,8 @@ class binary_mask_creator
         std::vector<Mat> createBinaryMask(VideoCapture& cap, bool removeFace);
         Mat removeFacesFromMask(Mat& binary_blur_uc, Mat& I1);
     private :
-        float thresholdCorrectionHigh = 35;
-        float thresholdCorrectionLow = 11;
+        float thresholdCorrectionHigh = 10;
+        float thresholdCorrectionLow = 0;
 };
 
+#endif
