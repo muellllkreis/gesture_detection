@@ -24,9 +24,14 @@ class binary_mask_creator
         Mat computeBinaryMask(std::vector<Hand_ROI> roi, Mat I);
         std::vector<Mat> createBinaryMask(VideoCapture& cap, bool removeFace);
         Mat removeFacesFromMask(Mat& binary_blur_uc, Mat& I1);
+        Mat removeBackGround(Mat input);
+        void calibrateBackground(Mat frame);
     private :
-        float thresholdCorrectionHigh = 10;
-        float thresholdCorrectionLow = 0;
+        float thresholdCorrectionHigh = 60;
+        float thresholdCorrectionLow = 20;
+        float backGroundThresholdOffset = 12;
+        bool calibrated = false;
+        Mat backgroundReference;
 };
 
 #endif

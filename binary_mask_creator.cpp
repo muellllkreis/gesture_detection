@@ -77,10 +77,14 @@ std::vector<Mat> binary_mask_creator::createBinaryMask(VideoCapture& cap, bool r
 	Mat I_BGR;
 	Mat I_HSV;
 	vector<Hand_ROI> roi;
-	vector<Hand_ROI>().swap(roi);
 	while (true)
 	{
+		vector<Hand_ROI>().swap(roi);		
 		cap >> I1;
+		if (calibrated)
+		{
+			I1 = removeBackGround(I1);
+		}
 		//flip(I1, I1, 1);
 		double col_offset = I1.cols * 0.05;
 		double row_offset = I1.rows * 0.05;
@@ -99,7 +103,18 @@ std::vector<Mat> binary_mask_creator::createBinaryMask(VideoCapture& cap, bool r
 		//roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset), I_HSV));
 		//roi.push_back(Hand_ROI(Point(hand_center.x, hand_center.y - row_offset * 2), I_HSV));
 
-		if (waitKey(10) == 32) {
+		int key = waitKey(1);
+
+		if (key == 98)
+		{
+			if (!calibrated)
+			{
+				calibrateBackground(I1);
+			}
+		}
+
+		if (key == 32)
+		{
 			break;
 		}
 
@@ -130,4 +145,46 @@ std::vector<Mat> binary_mask_creator::createBinaryMask(VideoCapture& cap, bool r
 	imshow("Image", BM);
 	waitKey(0);
 	return output;
+}
+
+Mat binary_mask_creator::removeBackGround(Mat input)
+{
+	//get foreground
+	Mat foregroundMask;
+	if (!calibrated)
+	{
+		return input;
+	}
+	else
+	{
+		//remove background
+		cvtColor(input, foregroundMask, CV_BGR2GRAY);
+		for (int i = 0; i < foregroundMask.rows; i++)
+		{
+			for (int j = 0; j < foregroundMask.cols; j++)
+			{
+				uchar framePixel = foregroundMask.at<uchar>(i, j);
+				uchar backgroundPixel = backgroundReference.at<uchar>(i, j);
+				if (framePixel >= backgroundPixel - backGroundThresholdOffset && framePixel <= backgroundPixel + backGroundThresholdOffset)
+				{
+					foregroundMask.at<uchar>(i, j) = 0;
+				}
+				else
+				{
+					foregroundMask.at<uchar>(i, j) = 255;
+				}
+			}
+		}
+		//return foreground mask
+		Mat foreground;
+		input.copyTo(foreground, foregroundMask);
+		return foreground;
+	}
+}
+
+void binary_mask_creator::calibrateBackground(Mat inputFrame)
+{
+	//calibrate background for future background removal
+	cvtColor(inputFrame, backgroundReference, CV_BGR2GRAY);
+	calibrated = true;
 }

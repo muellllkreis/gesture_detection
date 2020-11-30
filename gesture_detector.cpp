@@ -19,7 +19,7 @@ bool gesture_detector::findHandContour(Mat& binary_blur_uc, vector<Point>& handC
     // for now we only want to keep the biggest one (hand). this might pose problems later, we will see.
     vector<vector<Point>> contours;
     for (int i = 0; i < all_contours.size(); i++) {
-        if (contourArea(all_contours[i]) > 40000)
+        if (contourArea(all_contours[i]) > 20000)
             contours.push_back(all_contours[i]);
     }
 
@@ -78,13 +78,14 @@ vector<Point> gesture_detector::findFingerTips(vector<Point> handContour, Mat& I
         startPoints.push_back(handContour[defects[i].val[0]]);
 
         // filtering the far point based on the distance from the center of the bounding rectangle
-        if (distance(handContour[defects[i].val[2]], boundingRectangleCenter) < boundingRectangle.height * 0.3)
+        if (distance(handContour[defects[i].val[2]], boundingRectangleCenter) < boundingRectangle.height * limitDistanceRatio)
             farPoints.push_back(handContour[defects[i].val[2]]);
     }
 
+
     //we want only one point in a given neighbourhood of points --> filter the points
-    vector<Point> filteredStartPoints = neighborhoodAverage(startPoints, boundingRectangle.height * 0.05);
-    vector<Point> filteredFarPoints = neighborhoodAverage(farPoints, boundingRectangle.height * 0.05);
+    vector<Point> filteredStartPoints = neighborhoodAverage(startPoints, boundingRectangle.height * neighboorhoudSize);
+    vector<Point> filteredFarPoints = neighborhoodAverage(farPoints, boundingRectangle.height * neighboorhoudSize);
 
 
     vector<Point> fingerPoints;
@@ -92,60 +93,62 @@ vector<Point> gesture_detector::findFingerTips(vector<Point> handContour, Mat& I
     for(int i = 0; i < filteredStartPoints.size(); i++)
     {
         vector<Point> closestPoints = findClosestOnX(filteredFarPoints, filteredStartPoints[i]);
-        if (isFinger(closestPoints[0], filteredStartPoints[i], closestPoints[1], 5, 50, boundingRectangleCenter, boundingRectangle.height * 0.3))
+        if (isFinger(closestPoints[0], filteredStartPoints[i], closestPoints[1], 5, 50, boundingRectangleCenter, boundingRectangle.height * limitDistanceRatio))
         {
             fingerPoints.push_back(filteredStartPoints[i]);
         }
     }
 
-    ////filter false positive results
-    //float minDistance = boundingRectangle.height * 0.3 * 1.5;
-    //return filterFalsePositiveFingertips(fingerPoints, minDistance);
+    vector<Point> filteredFingerPoints = neighborhoodAverage(fingerPoints, boundingRectangle.height * neighboorhoudSize*5);
 
-    return fingerPoints;
+    float minDistance = limitFingertipDistanceRatio * boundingRectangle.height;
+    filterFalsePositiveFingertips(filteredFingerPoints, minDistance);
+
+    return filteredFingerPoints;
 }
 
 //TEST RESULTS
-vector<Point> gesture_detector::filterFalsePositiveFingertips(vector<Point> fingerPoints, float limitDistance)
+void gesture_detector::filterFalsePositiveFingertips(vector<Point>& fingerPoints, float limitDistance)
 {
     vector<Point> filteredFingerPoints;
     if (fingerPoints.size() > 0)
-    {
-        while (fingerPoints.size() > 5) //remove potential 6,7 fingers occurences 
-        {
-            fingerPoints.pop_back();
-        }
-
+    {        
         //filter out points too close to each other
+        //int lastIndex = ;
         for (int i = 0; i < fingerPoints.size() - 1; i++)
         {
-            if (findPointsDistanceOnX(fingerPoints[i], fingerPoints[i + 1]) > limitDistance)
+            if (distance(fingerPoints[i], fingerPoints[i + 1]) < limitDistance)
             {
-                filteredFingerPoints.push_back(fingerPoints[i]);
+                fingerPoints.erase(fingerPoints.begin()+i+1);                
+                //lastIndex--;
             }
         }
 
-        if (fingerPoints.size() > 2)
-        {
-            if (findPointsDistanceOnX(fingerPoints[0], fingerPoints[fingerPoints.size() - 1]) > limitDistance)
-            {
-                filteredFingerPoints.push_back(fingerPoints[fingerPoints.size() - 1]);
-            }
-        }
-        else
-        {
-            filteredFingerPoints.push_back(fingerPoints[fingerPoints.size() - 1]);
-        }
+        //while (filteredFingerPoints.size() > 5) //remove potential 6,7 fingers occurences 
+        //{
+        //    filteredFingerPoints.pop_back();
+        //}
+
+        //if (fingerPoints.size() > 2)
+        //{
+        //    if (findPointsDistanceOnX(fingerPoints[0], fingerPoints[fingerPoints.size() - 1]) > limitDistance)
+        //    {
+        //        filteredFingerPoints.push_back(fingerPoints[fingerPoints.size() - 1]);
+        //    }
+        //}
+        //else
+        //{
+        //    filteredFingerPoints.push_back(fingerPoints[fingerPoints.size() - 1]);
+        //}
     }
-    return filteredFingerPoints;
 }
 
 
 bool gesture_detector::isFinger(Point a, Point b, Point c, double minAngle, double maxAngle, Point handCentroid, double minDistFromCentroid) {
     float angle = getAngle(a, b, c);
-    //threshold angle values
-    if (angle > maxAngle || angle < minAngle)
-        return false;
+    ////threshold angle values
+    //if (angle > maxAngle || angle < minAngle)
+    //    return false;
 
     // the finger point should not be under the two far points
     if (b.y - a.y > 0 && b.y - c.y > 0)
@@ -158,7 +161,7 @@ bool gesture_detector::isFinger(Point a, Point b, Point c, double minAngle, doub
     if (distance(b, handCentroid) < minDistFromCentroid)
         return false;
 
-    // this should be the case when no fingers are up
+    // this should be the case when no fingers are up (hand uspide down)
     if (distance(a, handCentroid) < minDistFromCentroid / 4 || distance(c, handCentroid) < minDistFromCentroid / 4)
         return false;
 

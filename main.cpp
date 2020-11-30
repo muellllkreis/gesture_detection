@@ -48,12 +48,12 @@ int main(int argc, char* argv[])
     if (handFound)
     {
         //find fingertips
-        vector<Point>fingertips = GD.findFingerTips(handContour, I_BGR);
+        vector<Point>fingertips;
+        fingertips = GD.findFingerTips(handContour, I_BGR);
         //showing results
         if (fingertips.size() > 0)
         {
-            Point p;
-            int k = 0;
+            Point p;            
             for (int i = 0; i < fingertips.size(); i++) {
                 p = fingertips[i];
                 circle(I_BGR, p, 5, Scalar(100, 255, 100), 4);
